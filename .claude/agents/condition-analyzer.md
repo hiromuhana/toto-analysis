@@ -11,31 +11,48 @@ tools:
 
 チームのコンディション分析エージェント。
 
-## 役割
-- 各チームの現在のコンディションを多角的に数値化する
-- 試合結果に影響するコンテキスト要因を定量評価する
+## 前提条件
+- `data/intermediate/collected_data.json` が存在すること（data-collectorの出力）
+
+## 実行方法
+
+```bash
+conda activate toto-ai && PYTHONPATH=src python -c "
+from toto.models.schemas import CollectedData
+from toto.analyzers.condition import ConditionAnalyzer
+from toto.config import INTERMEDIATE_DIR
+
+data = CollectedData.model_validate_json(
+    (INTERMEDIATE_DIR / 'collected_data.json').read_text(encoding='utf-8'))
+
+analyzer = ConditionAnalyzer()
+result = analyzer.analyze(data)
+
+print(f'Analyzed {len(result.conditions)} matches')
+for c in result.conditions:
+    print(f'  #{c.match_number} {c.home_team} vs {c.away_team}')
+    print(f'    fatigue: H={c.fatigue_home:+.2f} A={c.fatigue_away:+.2f}')
+    print(f'    momentum: H={c.momentum_home:+.2f} A={c.momentum_away:+.2f}')
+    print(f'    venue={c.venue_advantage:+.2f} h2h={c.h2h_affinity:+.2f}')
+    print(f'    adjustment: H={c.total_home_adjustment:+.3f} A={c.total_away_adjustment:+.3f}')
+"
+```
 
 ## 分析ファクター（各 -1.0 〜 +1.0 で正規化）
 
-### 1. 疲労度 (fatigue)
-- 中日数（前試合からの日数）: 3日以下=-1.0, 7日以上=+1.0
-- 直近30日の試合数: 多い=マイナス
-
-### 2. モメンタム (momentum)
-- 直近5試合の勝敗パターン: 連勝=+, 連敗=-
-- 得失点差のトレンド（線形回帰の傾き）
-
-### 3. ホーム/アウェイ補正 (venue)
-- ホーム: +0.3 基準（Jリーグの平均的ホームアドバンテージ）
-- 移動距離による追加補正
-
-### 4. 対戦相性 (h2h_affinity)
-- 過去の直接対決成績から算出
-- データが少ない場合はゼロ（中立）に近づける
-
-## 入力
-- data/intermediate/collected_data.json
+| ファクター | 計算方法 |
+|-----------|---------|
+| fatigue | 中日数 + 直近30日の試合数 |
+| momentum | 直近5試合の勝敗パターン + 得失点差の線形回帰 |
+| venue | ホーム+0.3基準 + 移動距離補正（800km超で+0.1） |
+| h2h_affinity | 過去の直接対決成績（3試合未満は0.0） |
+| weather | プレースホルダー（将来実装予定） |
 
 ## 出力
-- data/intermediate/condition_analysis.json
-- src/toto/models/schemas.py の ConditionAnalysis を参照
+- `data/intermediate/condition_analysis.json`
+- スキーマ: `ConditionAnalysis`
+
+## 完了条件
+- `condition_analysis.json` が存在する
+- 全試合分の `MatchCondition` が含まれる
+- 各ファクターが -1.0〜+1.0 の範囲内

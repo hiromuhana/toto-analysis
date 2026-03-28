@@ -11,34 +11,55 @@ tools:
 
 toto投票率・オッズ分析エージェント。
 
-## 役割
-- toto投票率データの取得と分析
-- 暗黙確率の算出
-- バイアスの検出と補正
-- バリューベットの特定
+## 前提条件
+- `data/intermediate/collected_data.json` が存在すること（data-collectorの出力）
 
-## 処理フロー
+## 実行方法
 
-### 1. 投票率取得
-- toto公式サイトの投票率データを取得
-- 取得できない場合はモックデータにフォールバック
+```bash
+conda activate toto-ai && PYTHONPATH=src python -c "
+from toto.models.schemas import CollectedData
+from toto.analyzers.odds import OddsAnalyzer
+from toto.config import INTERMEDIATE_DIR
+import json
 
-### 2. 暗黙確率の算出
-- 投票率 → 暗黙確率に変換
-- オーバーラウンド（控除率）を除去して真の確率に近似
+data = CollectedData.model_validate_json(
+    (INTERMEDIATE_DIR / 'collected_data.json').read_text(encoding='utf-8'))
 
-### 3. バイアス検出
-- **人気バイアス**: 強豪チームへの過剰投票を検出
-- **引き分け軽視バイアス**: totoでは引き分け（0）が軽視される傾向
-- **連勝バイアス**: 直近好調チームへの過剰投票
+# 投票率データのロード（あれば）
+vote_path = INTERMEDIATE_DIR.parent / 'mock' / f'voting_round_{data.toto_round}.json'
+vote_data = json.loads(vote_path.read_text(encoding='utf-8')) if vote_path.exists() else None
 
-### 4. バリューベット検出
-- モデル確率 vs 投票率の乖離を計算
-- 乖離が大きい（投票率が低く、モデル確率が高い）試合をハイライト
+analyzer = OddsAnalyzer()
+result = analyzer.analyze(data, vote_data)
 
-## 入力
-- data/intermediate/collected_data.json
+print(f'Analyzed {len(result.odds)} matches')
+for o in result.odds:
+    biases = ', '.join(o.biases) if o.biases else 'none'
+    best_value = max(o.value_home, o.value_draw, o.value_away)
+    vb = ' [VALUE BET]' if best_value > 0.1 else ''
+    print(f'  #{o.match_number} {o.home_team} vs {o.away_team}')
+    print(f'    model: H={o.model_home_prob:.0%} D={o.model_draw_prob:.0%} A={o.model_away_prob:.0%}')
+    print(f'    value: H={o.value_home:+.3f} D={o.value_draw:+.3f} A={o.value_away:+.3f}{vb}')
+    print(f'    biases: [{biases}]')
+"
+```
+
+## 処理内容
+
+1. **投票率→暗黙確率変換**: toto還元率（約50%）を除去して真の確率に近似
+2. **モデル確率算出**: Eloレーティング差と攻撃/守備レーティングから3way確率を導出
+3. **バイアス検出**:
+   - `popularity_bias`: 強豪チームへの過剰投票
+   - `draw_neglect`: 引き分け投票率が異常に低い
+   - `recency_bias`: 直近成績への過剰反応
+4. **バリューベット検出**: model_prob - implied_prob > 0 の買い目を特定
 
 ## 出力
-- data/intermediate/odds_analysis.json
-- src/toto/models/schemas.py の OddsAnalysis を参照
+- `data/intermediate/odds_analysis.json`
+- スキーマ: `OddsAnalysis`
+
+## 完了条件
+- `odds_analysis.json` が存在する
+- 全試合分の `MatchOdds` が含まれる
+- `model_home_prob + model_draw_prob + model_away_prob ≈ 1.0`

@@ -13,49 +13,81 @@ tools:
 
 戦略統合・レポート生成エージェント。全エージェントの出力を統合して最終予測と購入プランを生成する。
 
-## 役割
-- 全分析結果の統合
-- 最終予測確率の算出
-- 3パターンの購入プラン生成
-- レポート出力
+## 前提条件（全て必須）
+- `data/intermediate/collected_data.json`
+- `data/intermediate/condition_analysis.json`
+- `data/intermediate/odds_analysis.json`
+- `data/intermediate/upset_analysis.json`
+
+## 実行方法
+
+```bash
+conda activate toto-ai && PYTHONPATH=src python -c "
+import sys
+from toto.strategy.synthesizer import StrategySynthesizer
+from toto.output.report import generate_report
+from toto.models.schemas import CollectedData, ConditionAnalysis, OddsAnalysis, UpsetAnalysis
+from toto.config import INTERMEDIATE_DIR
+
+BUDGET = int(sys.argv[1]) if len(sys.argv) > 1 else 1000
+
+collected = CollectedData.model_validate_json(
+    (INTERMEDIATE_DIR / 'collected_data.json').read_text(encoding='utf-8'))
+condition = ConditionAnalysis.model_validate_json(
+    (INTERMEDIATE_DIR / 'condition_analysis.json').read_text(encoding='utf-8'))
+odds = OddsAnalysis.model_validate_json(
+    (INTERMEDIATE_DIR / 'odds_analysis.json').read_text(encoding='utf-8'))
+upset = UpsetAnalysis.model_validate_json(
+    (INTERMEDIATE_DIR / 'upset_analysis.json').read_text(encoding='utf-8'))
+
+synth = StrategySynthesizer()
+strategy = synth.synthesize(collected, condition, odds, upset, budget=BUDGET)
+report_path = generate_report(strategy)
+
+pick_map = {'1': 'H', '0': 'D', '2': 'A'}
+print(f'=== Strategy: {len(strategy.predictions)} predictions, {len(strategy.plans)} plans ===')
+print()
+for p in strategy.predictions:
+    pick = pick_map[p.recommended_pick.value]
+    alert = ' [UPSET]' if p.upset_alert else ''
+    print(f'  #{p.match_number} {p.home_team} vs {p.away_team} -> {pick} ({p.confidence:.0%}){alert}')
+print()
+for plan in strategy.plans:
+    codes = []
+    for pick in plan.picks:
+        codes.append('-'.join(r.value for r in pick.picks))
+    print(f'{plan.display_name}: {\" \".join(codes)}')
+    print(f'  {plan.total_combinations}口 / {plan.cost_yen:,}円 / 的中率 {plan.estimated_hit_rate:.4%}')
+print()
+print(f'Report: {report_path}')
+" $BUDGET
+```
 
 ## 確率統合方式
-noteの連載「ChatGPTでtoto予想は当たるのか？」を参考にした多段パイプライン:
-1. ポアソン/Dixon-Colesモデルによる基礎確率
-2. コンディション補正
-3. 投票率バイアス補正
-4. 波乱スコアによる最終補正
 
-## 購入プラン（楽天totoの3タイプを参考）
+| 要素 | 重み | ソース |
+|------|------|--------|
+| 基礎モデル確率 | 40% | Dixon-Coles / Elo / CatBoost |
+| コンディション補正 | 20% | 疲労・モメンタム・ホーム |
+| 市場分析 | 15% | 投票率の暗黙確率 |
+| 波乱検出 | 25% | 波乱補正後の確率 |
 
-### コンサバプラン（しっかりゾウ型）
-- 本命寄りの安全な買い目
-- 当選確率は高いが、配当は低め
-- 波乱スコア60以上の試合のみダブル（2択）
+## 購入プラン
 
-### バランスプラン（バランスバード型）
-- 本命+一部の波乱を組み込み
-- 中程度のリスク・リターン
-- 波乱スコア50以上の試合でダブル
-
-### アグレッシブプラン（ハンターライオン型）
-- 波乱を積極的に取りに行く
-- 当選確率は低いが、高配当を狙う
-- 波乱スコア40以上でダブル、75以上でトリプル（3択）
-
-## レポート構成
-1. サマリー（1行で結論）
-2. 全試合予測一覧（確率 + 推奨ピック + 信頼度）
-3. 波乱注意試合のハイライト
-4. 3パターンの具体的な買い目
-5. 免責事項
-
-## 入力
-- data/intermediate/collected_data.json
-- data/intermediate/condition_analysis.json
-- data/intermediate/odds_analysis.json
-- data/intermediate/upset_analysis.json
+| プラン | キャラ | ダブル基準 | トリプル基準 |
+|--------|--------|-----------|-------------|
+| Conservative | しっかりゾウ | 波乱警戒 & 信頼度50%未満 | なし |
+| Balanced | バランスバード | 信頼度45%未満 | なし |
+| Aggressive | ハンターライオン | 信頼度50%未満 | 波乱警戒 & 信頼度40%未満 |
 
 ## 出力
-- data/intermediate/strategy.json
-- reports/round_XXXX_report.md
+- `data/intermediate/strategy.json`
+- `reports/round_XXXX_report.md`
+- スキーマ: `Strategy`
+
+## 完了条件
+- `strategy.json` が存在する
+- `reports/round_XXXX_report.md` が存在する
+- 全試合分の `MatchPrediction` が含まれる
+- 3つの `PurchasePlan`（conservative/balanced/aggressive）が含まれる
+- レポートに「免責事項」「コピペ用」セクションが含まれる

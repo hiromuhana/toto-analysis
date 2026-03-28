@@ -11,9 +11,16 @@ Phase B（逐次）: upset-detector（Phase Aの全出力を入力）
 Phase C（逐次）: strategy-synthesizer（全出力を統合）
 ```
 
+## スラッシュコマンド
+
+### `/toto-predict [ラウンド番号] [予算] [タイプ]`
+toto予測パイプラインを実行するオーケストレーションコマンド。
+- 例: `/toto-predict 1620 1000 toto`
+- 詳細は `.claude/commands/toto-predict.md` を参照
+
 ## オーケストレーションルール
 
-「toto予測を実行して」と言われたら、以下の順序でサブエージェントを呼び出す:
+「toto予測を実行して」または `/toto-predict` と言われたら、以下の順序でサブエージェントを呼び出す:
 
 1. **Phase A（並列）**: data-collector、condition-analyzer、odds-analyzer を同時に呼び出す
 2. **Phase B（逐次）**: Phase Aの3つが全て完了したら、upset-detector を呼び出す。入力として data/intermediate/ の3ファイルを渡す

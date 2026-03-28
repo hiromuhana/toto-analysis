@@ -11,53 +11,64 @@ tools:
 
 波乱検出エージェント。Phase Aの全出力を統合して波乱パターンを検出する。
 
-## 役割
-- 3つの分析結果を統合的に評価
-- 「本命が外れる」試合パターンを特定
-- 波乱スコアの算出と確率補正
+## 前提条件（全て必須）
+- `data/intermediate/collected_data.json`
+- `data/intermediate/condition_analysis.json`
+- `data/intermediate/odds_analysis.json`
 
-## 参考: toto-roid.com「Daisy」の手法
-- 投票率50%超の本命が外れるパターンを検出
-- 波乱予想確率70%以上を基準
-- 投票率80%超は除外（ガチ本命すぎて波乱になりにくい）
+## 実行方法
 
-## 波乱検出パターン（6カテゴリ）
+```bash
+conda activate toto-ai && PYTHONPATH=src python -c "
+from toto.models.schemas import CollectedData, ConditionAnalysis, OddsAnalysis
+from toto.analyzers.upset import UpsetDetector
+from toto.config import INTERMEDIATE_DIR
 
-### 1. 疲労格差パターン
-- 本命チームの中日数が少なく、対戦相手が十分休養している
-- ACL/ルヴァンカップとの日程重複
+collected = CollectedData.model_validate_json(
+    (INTERMEDIATE_DIR / 'collected_data.json').read_text(encoding='utf-8'))
+condition = ConditionAnalysis.model_validate_json(
+    (INTERMEDIATE_DIR / 'condition_analysis.json').read_text(encoding='utf-8'))
+odds = OddsAnalysis.model_validate_json(
+    (INTERMEDIATE_DIR / 'odds_analysis.json').read_text(encoding='utf-8'))
 
-### 2. モメンタム逆転パターン
-- 本命チームが直近で調子を落としている（連勝後の連敗開始等）
-- 下位チームが上昇トレンドにある
+detector = UpsetDetector()
+result = detector.analyze(collected, condition, odds)
 
-### 3. 対戦相性パターン
-- 過去の直接対決で本命が苦手としている
-- 戦術的な噛み合わせの悪さ
+alerts = [u for u in result.upsets if u.is_upset_alert]
+print(f'=== Upset Detection: {len(alerts)} alerts out of {len(result.upsets)} matches ===')
+for u in result.upsets:
+    flag = ' *** ALERT ***' if u.is_upset_alert else ''
+    patterns = ', '.join(p.category for p in u.patterns) if u.patterns else 'none'
+    print(f'  #{u.match_number} {u.home_team} vs {u.away_team}')
+    print(f'    score={u.upset_score}/100 patterns=[{patterns}]{flag}')
+    if u.is_upset_alert:
+        print(f'    adjusted: H={u.adjusted_home_prob:.0%} D={u.adjusted_draw_prob:.0%} A={u.adjusted_away_prob:.0%}')
+        print(f'    reason: {u.explanation}')
+"
+```
 
-### 4. 環境不利パターン
-- 長距離アウェイ遠征
-- 気候条件の大きな差（北海道↔九州等）
+## 波乱検出パターン（toto-roid Daisy参考）
 
-### 5. シーズン文脈パターン
-- 残留争い中のチームの異常な強さ
-- 優勝確定後のモチベーション低下
+| パターン | 検出条件 |
+|---------|---------|
+| fatigue_gap | 本命が疲労(-0.3未満)、相手が休養(+0.3超) |
+| momentum_reversal | 本命のmomentumが負、相手が正 |
+| h2h_mismatch | 本命の対戦相性が -0.3未満 |
+| environment_disadvantage | 本命が800km超のアウェイ |
+| season_context | 残留争いチームの異常な強さ / 優勝確定後のモチベ低下 |
+| vote_overconfidence | Daisyコアロジック: 投票率50-80%帯で15%以上の乖離 |
 
-### 6. 投票率過信パターン
-- 投票率が実力差以上に偏っている
-- メディアの影響で過大評価されている
-
-## 波乱スコア算出
-- 各パターンを0-100でスコアリング
-- 加重平均で最終波乱スコアを算出
-- 波乱スコア60以上: 要注意
-- 波乱スコア75以上: 高確率で波乱
-
-## 入力
-- data/intermediate/collected_data.json
-- data/intermediate/condition_analysis.json
-- data/intermediate/odds_analysis.json
+## Daisy基準
+- 対象: 本命投票率 50%〜80% の試合のみ
+- 発火: 波乱スコア 70以上
+- 除外: 投票率80%超（ガチ本命は波乱になりにくい）
 
 ## 出力
-- data/intermediate/upset_analysis.json
-- src/toto/models/schemas.py の UpsetAnalysis を参照
+- `data/intermediate/upset_analysis.json`
+- スキーマ: `UpsetAnalysis`
+
+## 完了条件
+- `upset_analysis.json` が存在する
+- 全試合分の `MatchUpset` が含まれる
+- `upset_score` が 0〜100 の範囲内
+- `adjusted_home_prob + adjusted_draw_prob + adjusted_away_prob ≈ 1.0`
