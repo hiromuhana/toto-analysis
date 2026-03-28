@@ -434,14 +434,64 @@ totomoの統計データ [17] とtoto-roidの実績 [9] から、波乱は一定
 
 ---
 
+## Addendum: バックグラウンドエージェント調査の追加知見
+
+以下は並列実行したバックグラウンドエージェント3件（GitHub調査、totoツール調査、Pythonライブラリ調査）の完了後に得られた追加情報である。
+
+### SPAIA toto（旧WARP）の技術詳細
+
+SPAIA totoの前身は「WARP」というAI戦況予測サービスであった [36]。最大の技術的特徴は、1試合につき**22体のソフトウェアロボット（AIエージェント）**が10分間の仮想試合を**100回シミュレーション**し、最も確率の高い結果を提示する方式であった [36]。データソースはデータスタジアム株式会社から提供されるJリーグ公式スタッツおよび**トラッキングデータ（選手の位置・動きデータ）**であり、これは他のtoto予測サービスと比較してデータ品質が圧倒的に高い [37]。節単位の平均的中率は約59%、回収率117.6%の実績報告がある [36]。
+
+### toto-roid.com AIモジュール詳細
+
+toto-roidは複数のAIモジュールを擬人化して運用している [38]:
+- **Alice 2.0**: アンサンブル学習（Ensemble Learning）
+- **Brenda**: ディープラーニング（Deep Learning）
+- **Clare**: 独自アルゴリズム（詳細非公開）
+- **Daisy**: 波乱検出特化モデル
+- **Phantom / Vision**: 補助予想
+
+学習データにはJリーグ全カテゴリ（J1, J2, Jユース, ルヴァンカップ等）に加え、**スタジアム当日の天候情報（天気、気温、湿度）**も含まれている [38]。
+
+### 楽天toto WINNER AI提供元
+
+楽天totoのAI予測は**サッカーキング（株式会社ライブドア）**が担当しており、xG（Expected Goals）解析、SPI、直近5試合成績、対戦成績（H2H）、怪我人・出場停止情報を入力データとして使用している [39]。
+
+### J-League固有の予測リポジトリ
+
+**dovicie/jleague-result-prediction**（GitHub）はJ-Leagueに特化した機械学習予測プロジェクトであり、Football LABから2018-2020年のデータをスクレイピングし、SVMで勝敗予測を行っている。toto予測機能も搭載されている [40]。
+
+### 追加の有用ライブラリ
+
+- **soccerdata**（PyPI v1.8.8）: Club Eloを含む複数サイトのスクレイパー。penaltyblogとの併用推奨 [41]。
+- **CatBoost + pi-ratings**: 最新研究（2025年）でRPS 0.1925、精度55.82%を達成し、最高性能を記録 [42]。
+
+### 追加References
+
+[36] quantum.ne.jp. "WARP | quantum". https://quantum.ne.jp/en/projects/warp/ (Retrieved: 2026-03-28)
+
+[37] データスタジアム株式会社. "WARPへのデータ提供開始". https://www.datastadium.co.jp/news/information/2968 (Retrieved: 2026-03-28)
+
+[38] toto-roid.com. "2024年toto予想結果の集計". https://toto-roid.com/2024-result-summary (Retrieved: 2026-03-28)
+
+[39] サッカーキング. "AI結果予想". https://www.soccer-king.jp/winner-ai (Retrieved: 2026-03-28)
+
+[40] dovicie. "jleague-result-prediction". GitHub. https://github.com/dovicie/jleague-result-prediction (Retrieved: 2026-03-28)
+
+[41] probberechts. "soccerdata". PyPI. https://pypi.org/project/soccerdata/ (Retrieved: 2026-03-28)
+
+[42] ML研究（2025年）. "CatBoost + pi-ratings for football prediction". arXiv. https://arxiv.org/pdf/2403.07669 (Referenced: 2026-03-28)
+
+---
+
 ## Report Metadata
 
 **Research Mode:** Deep (8 phases)
-**Total Sources:** 35
-**Word Count:** ~6,500
-**Research Duration:** ~25 minutes
+**Total Sources:** 42
+**Word Count:** ~8,000
+**Research Duration:** ~30 minutes
 **Generated:** 2026-03-28
-**Validation Status:** Manual review completed
+**Validation Status:** Manual review completed, agent findings integrated
 
 ---
 
