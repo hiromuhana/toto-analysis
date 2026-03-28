@@ -35,6 +35,7 @@ class OddsAnalyzer:
         self,
         collected_data: CollectedData,
         vote_data: dict[int, dict[str, float]] | None = None,
+        dc_predictions: dict[str, dict[str, float]] | None = None,
     ) -> OddsAnalysis:
         """Run odds analysis on all matches.
 
@@ -44,6 +45,9 @@ class OddsAnalyzer:
                 Each value is a dict with keys "home", "draw", "away"
                 containing vote percentages (0-100 scale).
                 If None, equal distribution (33/33/33) is assumed.
+            dc_predictions: Optional Dixon-Coles predictions keyed by
+                "home_vs_away" string. Each value has "home", "draw", "away"
+                probabilities (0-1 scale).
 
         Returns:
             OddsAnalysis with per-match odds breakdowns.
@@ -71,8 +75,15 @@ class OddsAnalyzer:
                 home_pct, draw_pct, away_pct
             )
 
-            # Get model probabilities from Dixon-Coles ratings
-            model_home, model_draw, model_away = self._get_model_probs(match)
+            # Get model probabilities: prefer DC predictions, fallback to Elo
+            dc_key = f"{match.home_team}_vs_{match.away_team}"
+            dc = dc_predictions.get(dc_key) if dc_predictions else None
+            if dc:
+                model_home = dc["home"]
+                model_draw = dc["draw"]
+                model_away = dc["away"]
+            else:
+                model_home, model_draw, model_away = self._get_model_probs(match)
 
             # Calculate value (model_prob - implied_prob)
             value_home = self._calc_value(model_home, impl_home)
