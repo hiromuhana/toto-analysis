@@ -19,5 +19,7 @@ coverage.xml
 *.log
 data/intermediate/*.json
 !data/intermediate/.gitkeep
+data/cache/*.json
+!data/cache/.gitkeep
 !data/mock/*.json
 .DS_Store

@@ -1,0 +1,206 @@
+{
+  "agent": "data-collector",
+  "timestamp": "2026-03-28T12:00:00",
+  "toto_round": 1620,
+  "toto_type": "toto",
+  "data_sources": ["mock"],
+  "matches": [
+    {
+      "match_number": 1,
+      "home_team": "鹿島アントラーズ",
+      "away_team": "浦和レッズ",
+      "stadium": "カシマサッカースタジアム",
+      "match_date": "2026-03-29",
+      "home_season_stats": {"played": 6, "wins": 4, "draws": 1, "losses": 1, "goals_for": 10, "goals_against": 5, "points": 13, "rank": 3, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 3, "draws": 2, "losses": 1, "goals_for": 9, "goals_against": 6, "points": 11, "rank": 5, "xg": null, "xga": null},
+      "home_recent": [
+        {"date": "2026-03-22", "opponent": "FC東京", "home_or_away": "home", "goals_for": 2, "goals_against": 1, "result": "1"},
+        {"date": "2026-03-15", "opponent": "川崎フロンターレ", "home_or_away": "away", "goals_for": 1, "goals_against": 1, "result": "0"},
+        {"date": "2026-03-08", "opponent": "名古屋グランパス", "home_or_away": "home", "goals_for": 3, "goals_against": 0, "result": "1"},
+        {"date": "2026-03-01", "opponent": "ガンバ大阪", "home_or_away": "away", "goals_for": 0, "goals_against": 1, "result": "2"},
+        {"date": "2026-02-22", "opponent": "横浜F・マリノス", "home_or_away": "home", "goals_for": 2, "goals_against": 1, "result": "1"}
+      ],
+      "away_recent": [
+        {"date": "2026-03-22", "opponent": "セレッソ大阪", "home_or_away": "away", "goals_for": 2, "goals_against": 2, "result": "0"},
+        {"date": "2026-03-15", "opponent": "サンフレッチェ広島", "home_or_away": "home", "goals_for": 1, "goals_against": 0, "result": "1"},
+        {"date": "2026-03-08", "opponent": "アビスパ福岡", "home_or_away": "away", "goals_for": 3, "goals_against": 1, "result": "1"},
+        {"date": "2026-03-01", "opponent": "湘南ベルマーレ", "home_or_away": "home", "goals_for": 0, "goals_against": 0, "result": "0"},
+        {"date": "2026-02-22", "opponent": "ヴィッセル神戸", "home_or_away": "away", "goals_for": 1, "goals_against": 2, "result": "2"}
+      ],
+      "h2h": [
+        {"date": "2025-09-20", "opponent": "浦和レッズ", "home_or_away": "home", "goals_for": 2, "goals_against": 0, "result": "1"},
+        {"date": "2025-04-12", "opponent": "鹿島アントラーズ", "home_or_away": "away", "goals_for": 1, "goals_against": 1, "result": "0"}
+      ],
+      "home_elo": 1580.0, "away_elo": 1560.0,
+      "home_attack_rating": 1.15, "away_attack_rating": 1.05,
+      "home_defense_rating": 0.90, "away_defense_rating": 0.95
+    },
+    {
+      "match_number": 2,
+      "home_team": "横浜F・マリノス",
+      "away_team": "川崎フロンターレ",
+      "stadium": "日産スタジアム",
+      "match_date": "2026-03-29",
+      "home_season_stats": {"played": 6, "wins": 2, "draws": 2, "losses": 2, "goals_for": 8, "goals_against": 8, "points": 8, "rank": 10, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 5, "draws": 0, "losses": 1, "goals_for": 14, "goals_against": 4, "points": 15, "rank": 1, "xg": null, "xga": null},
+      "home_recent": [
+        {"date": "2026-03-22", "opponent": "アルビレックス新潟", "home_or_away": "home", "goals_for": 1, "goals_against": 2, "result": "2"},
+        {"date": "2026-03-15", "opponent": "湘南ベルマーレ", "home_or_away": "away", "goals_for": 2, "goals_against": 0, "result": "1"},
+        {"date": "2026-03-08", "opponent": "セレッソ大阪", "home_or_away": "home", "goals_for": 0, "goals_against": 0, "result": "0"},
+        {"date": "2026-03-01", "opponent": "ヴィッセル神戸", "home_or_away": "away", "goals_for": 1, "goals_against": 3, "result": "2"},
+        {"date": "2026-02-22", "opponent": "鹿島アントラーズ", "home_or_away": "away", "goals_for": 1, "goals_against": 2, "result": "2"}
+      ],
+      "away_recent": [
+        {"date": "2026-03-22", "opponent": "ヴィッセル神戸", "home_or_away": "home", "goals_for": 3, "goals_against": 1, "result": "1"},
+        {"date": "2026-03-15", "opponent": "鹿島アントラーズ", "home_or_away": "away", "goals_for": 1, "goals_against": 1, "result": "0"},
+        {"date": "2026-03-08", "opponent": "FC東京", "home_or_away": "home", "goals_for": 4, "goals_against": 0, "result": "1"},
+        {"date": "2026-03-01", "opponent": "清水エスパルス", "home_or_away": "away", "goals_for": 2, "goals_against": 1, "result": "1"},
+        {"date": "2026-02-22", "opponent": "サンフレッチェ広島", "home_or_away": "home", "goals_for": 2, "goals_against": 0, "result": "1"}
+      ],
+      "h2h": [
+        {"date": "2025-10-05", "opponent": "川崎フロンターレ", "home_or_away": "home", "goals_for": 1, "goals_against": 1, "result": "0"},
+        {"date": "2025-05-10", "opponent": "横浜F・マリノス", "home_or_away": "away", "goals_for": 3, "goals_against": 2, "result": "2"}
+      ],
+      "home_elo": 1520.0, "away_elo": 1620.0,
+      "home_attack_rating": 0.95, "away_attack_rating": 1.30,
+      "home_defense_rating": 1.10, "away_defense_rating": 0.80
+    },
+    {
+      "match_number": 3,
+      "home_team": "ヴィッセル神戸",
+      "away_team": "サンフレッチェ広島",
+      "stadium": "ノエビアスタジアム神戸",
+      "match_date": "2026-03-29",
+      "home_season_stats": {"played": 6, "wins": 4, "draws": 2, "losses": 0, "goals_for": 11, "goals_against": 3, "points": 14, "rank": 2, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 3, "draws": 1, "losses": 2, "goals_for": 7, "goals_against": 6, "points": 10, "rank": 6, "xg": null, "xga": null},
+      "home_recent": [
+        {"date": "2026-03-22", "opponent": "川崎フロンターレ", "home_or_away": "away", "goals_for": 1, "goals_against": 3, "result": "2"},
+        {"date": "2026-03-15", "opponent": "ガンバ大阪", "home_or_away": "home", "goals_for": 2, "goals_against": 0, "result": "1"},
+        {"date": "2026-03-08", "opponent": "清水エスパルス", "home_or_away": "away", "goals_for": 1, "goals_against": 0, "result": "1"},
+        {"date": "2026-03-01", "opponent": "横浜F・マリノス", "home_or_away": "home", "goals_for": 3, "goals_against": 1, "result": "1"},
+        {"date": "2026-02-22", "opponent": "名古屋グランパス", "home_or_away": "away", "goals_for": 2, "goals_against": 2, "result": "0"}
+      ],
+      "away_recent": [
+        {"date": "2026-03-22", "opponent": "名古屋グランパス", "home_or_away": "home", "goals_for": 1, "goals_against": 0, "result": "1"},
+        {"date": "2026-03-15", "opponent": "浦和レッズ", "home_or_away": "away", "goals_for": 0, "goals_against": 1, "result": "2"},
+        {"date": "2026-03-08", "opponent": "アビスパ福岡", "home_or_away": "home", "goals_for": 2, "goals_against": 1, "result": "1"},
+        {"date": "2026-03-01", "opponent": "町田ゼルビア", "home_or_away": "away", "goals_for": 0, "goals_against": 2, "result": "2"},
+        {"date": "2026-02-22", "opponent": "FC東京", "home_or_away": "home", "goals_for": 1, "goals_against": 1, "result": "0"}
+      ],
+      "h2h": [],
+      "home_elo": 1610.0, "away_elo": 1550.0,
+      "home_attack_rating": 1.20, "away_attack_rating": 0.95,
+      "home_defense_rating": 0.75, "away_defense_rating": 1.00
+    },
+    {
+      "match_number": 4,
+      "home_team": "FC東京",
+      "away_team": "ガンバ大阪",
+      "stadium": "味の素スタジアム",
+      "match_date": "2026-03-29",
+      "home_season_stats": {"played": 6, "wins": 2, "draws": 1, "losses": 3, "goals_for": 6, "goals_against": 9, "points": 7, "rank": 12, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 3, "draws": 2, "losses": 1, "goals_for": 8, "goals_against": 5, "points": 11, "rank": 4, "xg": null, "xga": null},
+      "home_recent": [
+        {"date": "2026-03-22", "opponent": "鹿島アントラーズ", "home_or_away": "away", "goals_for": 1, "goals_against": 2, "result": "2"},
+        {"date": "2026-03-15", "opponent": "町田ゼルビア", "home_or_away": "home", "goals_for": 0, "goals_against": 1, "result": "2"},
+        {"date": "2026-03-08", "opponent": "川崎フロンターレ", "home_or_away": "away", "goals_for": 0, "goals_against": 4, "result": "2"},
+        {"date": "2026-03-01", "opponent": "アルビレックス新潟", "home_or_away": "home", "goals_for": 2, "goals_against": 1, "result": "1"},
+        {"date": "2026-02-22", "opponent": "セレッソ大阪", "home_or_away": "away", "goals_for": 3, "goals_against": 2, "result": "1"}
+      ],
+      "away_recent": [
+        {"date": "2026-03-22", "opponent": "清水エスパルス", "home_or_away": "home", "goals_for": 2, "goals_against": 0, "result": "1"},
+        {"date": "2026-03-15", "opponent": "ヴィッセル神戸", "home_or_away": "away", "goals_for": 0, "goals_against": 2, "result": "2"},
+        {"date": "2026-03-08", "opponent": "湘南ベルマーレ", "home_or_away": "home", "goals_for": 1, "goals_against": 1, "result": "0"},
+        {"date": "2026-03-01", "opponent": "鹿島アントラーズ", "home_or_away": "home", "goals_for": 1, "goals_against": 0, "result": "1"},
+        {"date": "2026-02-22", "opponent": "アビスパ福岡", "home_or_away": "away", "goals_for": 1, "goals_against": 0, "result": "1"}
+      ],
+      "h2h": [
+        {"date": "2025-08-30", "opponent": "ガンバ大阪", "home_or_away": "home", "goals_for": 1, "goals_against": 1, "result": "0"}
+      ],
+      "home_elo": 1490.0, "away_elo": 1570.0,
+      "home_attack_rating": 0.85, "away_attack_rating": 1.00,
+      "home_defense_rating": 1.15, "away_defense_rating": 0.88
+    },
+    {
+      "match_number": 5, "home_team": "セレッソ大阪", "away_team": "名古屋グランパス",
+      "stadium": "ヨドコウ桜スタジアム", "match_date": "2026-03-29",
+      "home_season_stats": {"played": 6, "wins": 2, "draws": 3, "losses": 1, "goals_for": 7, "goals_against": 5, "points": 9, "rank": 8, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 2, "draws": 2, "losses": 2, "goals_for": 6, "goals_against": 7, "points": 8, "rank": 9, "xg": null, "xga": null},
+      "home_recent": [], "away_recent": [], "h2h": [],
+      "home_elo": 1530.0, "away_elo": 1510.0,
+      "home_attack_rating": 0.98, "away_attack_rating": 0.90, "home_defense_rating": 0.92, "away_defense_rating": 1.05
+    },
+    {
+      "match_number": 6, "home_team": "アルビレックス新潟", "away_team": "町田ゼルビア",
+      "stadium": "デンカビッグスワンスタジアム", "match_date": "2026-03-29",
+      "home_season_stats": {"played": 6, "wins": 1, "draws": 2, "losses": 3, "goals_for": 5, "goals_against": 8, "points": 5, "rank": 16, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 3, "draws": 1, "losses": 2, "goals_for": 6, "goals_against": 5, "points": 10, "rank": 7, "xg": null, "xga": null},
+      "home_recent": [], "away_recent": [], "h2h": [],
+      "home_elo": 1460.0, "away_elo": 1540.0,
+      "home_attack_rating": 0.82, "away_attack_rating": 0.92, "home_defense_rating": 1.18, "away_defense_rating": 0.95
+    },
+    {
+      "match_number": 7, "home_team": "清水エスパルス", "away_team": "湘南ベルマーレ",
+      "stadium": "IAIスタジアム日本平", "match_date": "2026-03-29",
+      "home_season_stats": {"played": 6, "wins": 1, "draws": 3, "losses": 2, "goals_for": 4, "goals_against": 6, "points": 6, "rank": 14, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 1, "draws": 1, "losses": 4, "goals_for": 4, "goals_against": 10, "points": 4, "rank": 18, "xg": null, "xga": null},
+      "home_recent": [], "away_recent": [], "h2h": [],
+      "home_elo": 1470.0, "away_elo": 1430.0,
+      "home_attack_rating": 0.78, "away_attack_rating": 0.75, "home_defense_rating": 1.05, "away_defense_rating": 1.25
+    },
+    {
+      "match_number": 8, "home_team": "京都サンガF.C.", "away_team": "東京ヴェルディ",
+      "stadium": "サンガスタジアム by KYOCERA", "match_date": "2026-03-29",
+      "home_season_stats": {"played": 6, "wins": 1, "draws": 2, "losses": 3, "goals_for": 5, "goals_against": 9, "points": 5, "rank": 15, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 2, "draws": 1, "losses": 3, "goals_for": 5, "goals_against": 7, "points": 7, "rank": 11, "xg": null, "xga": null},
+      "home_recent": [], "away_recent": [], "h2h": [],
+      "home_elo": 1450.0, "away_elo": 1480.0,
+      "home_attack_rating": 0.85, "away_attack_rating": 0.80, "home_defense_rating": 1.20, "away_defense_rating": 1.10
+    },
+    {
+      "match_number": 9, "home_team": "ジュビロ磐田", "away_team": "アビスパ福岡",
+      "stadium": "ヤマハスタジアム", "match_date": "2026-03-29",
+      "home_season_stats": {"played": 6, "wins": 2, "draws": 1, "losses": 3, "goals_for": 6, "goals_against": 8, "points": 7, "rank": 13, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 1, "draws": 2, "losses": 3, "goals_for": 3, "goals_against": 7, "points": 5, "rank": 17, "xg": null, "xga": null},
+      "home_recent": [], "away_recent": [], "h2h": [],
+      "home_elo": 1480.0, "away_elo": 1440.0,
+      "home_attack_rating": 0.88, "away_attack_rating": 0.72, "home_defense_rating": 1.12, "away_defense_rating": 1.15
+    },
+    {
+      "match_number": 10, "home_team": "北海道コンサドーレ札幌", "away_team": "大宮アルディージャ",
+      "stadium": "札幌ドーム", "match_date": "2026-03-29",
+      "home_season_stats": {"played": 6, "wins": 1, "draws": 1, "losses": 4, "goals_for": 4, "goals_against": 11, "points": 4, "rank": 19, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 0, "draws": 2, "losses": 4, "goals_for": 3, "goals_against": 10, "points": 2, "rank": 20, "xg": null, "xga": null},
+      "home_recent": [], "away_recent": [], "h2h": [],
+      "home_elo": 1420.0, "away_elo": 1400.0,
+      "home_attack_rating": 0.70, "away_attack_rating": 0.65, "home_defense_rating": 1.30, "away_defense_rating": 1.35
+    },
+    {
+      "match_number": 11, "home_team": "横浜FC", "away_team": "鹿島アントラーズ",
+      "stadium": "ニッパツ三ツ沢球技場", "match_date": "2026-03-30",
+      "home_season_stats": {"played": 6, "wins": 2, "draws": 2, "losses": 2, "goals_for": 7, "goals_against": 7, "points": 8, "rank": 10, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 4, "draws": 1, "losses": 1, "goals_for": 10, "goals_against": 5, "points": 13, "rank": 3, "xg": null, "xga": null},
+      "home_recent": [], "away_recent": [], "h2h": [],
+      "home_elo": 1490.0, "away_elo": 1580.0,
+      "home_attack_rating": 0.92, "away_attack_rating": 1.15, "home_defense_rating": 1.05, "away_defense_rating": 0.90
+    },
+    {
+      "match_number": 12, "home_team": "サンフレッチェ広島", "away_team": "セレッソ大阪",
+      "stadium": "エディオンピースウイング広島", "match_date": "2026-03-30",
+      "home_season_stats": {"played": 6, "wins": 3, "draws": 1, "losses": 2, "goals_for": 7, "goals_against": 6, "points": 10, "rank": 6, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 2, "draws": 3, "losses": 1, "goals_for": 7, "goals_against": 5, "points": 9, "rank": 8, "xg": null, "xga": null},
+      "home_recent": [], "away_recent": [], "h2h": [],
+      "home_elo": 1550.0, "away_elo": 1530.0,
+      "home_attack_rating": 0.95, "away_attack_rating": 0.98, "home_defense_rating": 1.00, "away_defense_rating": 0.92
+    },
+    {
+      "match_number": 13, "home_team": "名古屋グランパス", "away_team": "浦和レッズ",
+      "stadium": "豊田スタジアム", "match_date": "2026-03-30",
+      "home_season_stats": {"played": 6, "wins": 2, "draws": 2, "losses": 2, "goals_for": 6, "goals_against": 7, "points": 8, "rank": 9, "xg": null, "xga": null},
+      "away_season_stats": {"played": 6, "wins": 3, "draws": 2, "losses": 1, "goals_for": 9, "goals_against": 6, "points": 11, "rank": 5, "xg": null, "xga": null},
+      "home_recent": [], "away_recent": [], "h2h": [],
+      "home_elo": 1510.0, "away_elo": 1560.0,
+      "home_attack_rating": 0.90, "away_attack_rating": 1.05, "home_defense_rating": 1.05, "away_defense_rating": 0.95
+    }
+  ]
+}
