@@ -77,33 +77,79 @@ async def run_phase_a(toto_round: int, toto_type: TotoType) -> tuple[
         logger.info("Voting data: %d matches from %s",
                      len(vote_list), "toto.cam" if totomo_votes else "toto-dream.com")
 
-    # --- Step 2: Build CollectedData from match list ---
+    # --- Step 2: Load team stats & build CollectedData ---
+    from toto.collectors.jleague import load_team_stats
+
+    team_stats_map = await load_team_stats()
+
     if official_matches:
         match_data_list = []
         for m in official_matches:
-            # Create basic MatchData with placeholder stats
-            # (Real stats would come from football-lab.jp or data.j-league.or.jp)
-            default_stats = SeasonStats(
+            home = m["home_team"]
+            away = m["away_team"]
+            h_stats = team_stats_map.get(home)
+            a_stats = team_stats_map.get(away)
+
+            home_season = SeasonStats(
+                played=h_stats["played"], wins=h_stats["wins"],
+                draws=h_stats["draws"], losses=h_stats["losses"],
+                goals_for=h_stats["goals_for"], goals_against=h_stats["goals_against"],
+                points=h_stats["points"], rank=h_stats["rank"],
+            ) if h_stats else SeasonStats(
                 played=0, wins=0, draws=0, losses=0,
                 goals_for=0, goals_against=0, points=0, rank=0,
             )
+            away_season = SeasonStats(
+                played=a_stats["played"], wins=a_stats["wins"],
+                draws=a_stats["draws"], losses=a_stats["losses"],
+                goals_for=a_stats["goals_for"], goals_against=a_stats["goals_against"],
+                points=a_stats["points"], rank=a_stats["rank"],
+            ) if a_stats else SeasonStats(
+                played=0, wins=0, draws=0, losses=0,
+                goals_for=0, goals_against=0, points=0, rank=0,
+            )
+
+            # Compute Elo from league rank (simple approximation)
+            h_elo = 1500 + (10 - (h_stats["rank"] if h_stats else 10)) * 15 if h_stats else 1500
+            a_elo = 1500 + (10 - (a_stats["rank"] if a_stats else 10)) * 15 if a_stats else 1500
+
+            # Attack/defense ratings from goals per game
+            if h_stats and h_stats["played"] > 0:
+                h_atk = h_stats["goals_for"] / h_stats["played"] / 1.3
+                h_def = h_stats["goals_against"] / h_stats["played"] / 1.3
+            else:
+                h_atk, h_def = 1.0, 1.0
+            if a_stats and a_stats["played"] > 0:
+                a_atk = a_stats["goals_for"] / a_stats["played"] / 1.3
+                a_def = a_stats["goals_against"] / a_stats["played"] / 1.3
+            else:
+                a_atk, a_def = 1.0, 1.0
+
             match_data_list.append(MatchData(
                 match_number=m["match_number"],
-                home_team=m["home_team"],
-                away_team=m["away_team"],
+                home_team=home,
+                away_team=away,
                 stadium=m.get("stadium", ""),
                 match_date=m.get("match_date", ""),
-                home_season_stats=default_stats,
-                away_season_stats=default_stats,
+                home_season_stats=home_season,
+                away_season_stats=away_season,
+                home_elo=h_elo, away_elo=a_elo,
+                home_attack_rating=round(h_atk, 3),
+                away_attack_rating=round(a_atk, 3),
+                home_defense_rating=round(h_def, 3),
+                away_defense_rating=round(a_def, 3),
             ))
+
+            stats_status = "OK" if h_stats and a_stats else ("H?" if not h_stats else "A?")
+            logger.info("  #%d %s vs %s [%s] elo=%d/%d", m["match_number"], home, away, stats_status, h_elo, a_elo)
 
         collected = CollectedData(
             toto_round=toto_round,
             toto_type=toto_type,
             matches=match_data_list,
-            data_sources=["toto-dream.com"],
+            data_sources=["toto-dream.com", "data.j-league.or.jp"],
         )
-        logger.info("[Real] Got %d matches from toto-dream.com", len(match_data_list))
+        logger.info("[Real] Got %d matches with team stats", len(match_data_list))
 
     # --- Step 3: Fall back to mock if no real matches ---
     if collected is None or not collected.matches:

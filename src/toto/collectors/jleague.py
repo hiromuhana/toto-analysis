@@ -258,15 +258,142 @@ class JLeagueCollector(BaseCollector):
 
     @staticmethod
     def _safe_int(value: str) -> int:
-        """Convert a string to int, returning 0 for non-numeric values.
-
-        Args:
-            value: String to convert.
-
-        Returns:
-            Parsed integer or 0.
-        """
+        """Convert a string to int, returning 0 for non-numeric values."""
         try:
             return int(value.replace(",", ""))
         except (ValueError, AttributeError):
             return 0
+
+
+# --- Team name mapping: toto short name → official full name ---
+
+TOTO_TO_OFFICIAL: dict[str, str] = {
+    # J2
+    "横浜FC": "横浜ＦＣ", "湘南": "湘南ベルマーレ",
+    "甲府": "ヴァンフォーレ甲府", "大宮": "ＲＢ大宮アルディージャ",
+    "秋田": "ブラウブリッツ秋田", "仙台": "ベガルタ仙台",
+    "富山": "カターレ富山", "今治": "ＦＣ今治",
+    "いわき": "いわきＦＣ", "磐田": "ジュビロ磐田",
+    "藤枝": "藤枝ＭＹＦＣ", "札幌": "北海道コンサドーレ札幌",
+    "山形": "モンテディオ山形", "栃木Ｃ": "栃木シティ",
+    "徳島": "徳島ヴォルティス", "鳥栖": "サガン鳥栖",
+    "水戸": "水戸ホーリーホック", "長崎": "Ｖ・ファーレン長崎",
+    "千葉": "ジェフユナイテッド千葉", "山口": "レノファ山口ＦＣ",
+    "大分": "大分トリニータ", "熊本": "ロアッソ熊本",
+    "愛媛": "愛媛ＦＣ", "新潟": "アルビレックス新潟",
+    # J3
+    "八戸": "ヴァンラーレ八戸", "相模原": "ＳＣ相模原",
+    "FC大阪": "ＦＣ大阪", "高知": "高知ユナイテッドＳＣ",
+    "宮崎": "テゲバジャーロ宮崎", "滋賀": "ＭＩＯびわこ滋賀",
+    "鳥取": "ガイナーレ鳥取", "栃木": "栃木ＳＣ",
+    "北九州": "ギラヴァンツ北九州", "金沢": "ツエーゲン金沢",
+    "奈良": "奈良クラブ", "福島": "福島ユナイテッドＦＣ",
+    "岐阜": "ＦＣ岐阜", "群馬": "ザスパ群馬",
+    "松本": "松本山雅ＦＣ", "琉球": "ＦＣ琉球",
+    "讃岐": "カマタマーレ讃岐", "長野": "ＡＣ長野パルセイロ",
+    "沼津": "アスルクラロ沼津", "鹿児島": "鹿児島ユナイテッドＦＣ",
+    # J1
+    "鹿島": "鹿島アントラーズ", "浦和": "浦和レッズ",
+    "FC東京": "ＦＣ東京", "東京Ｖ": "東京ヴェルディ",
+    "町田": "町田ゼルビア", "川崎Ｆ": "川崎フロンターレ",
+    "横浜FM": "横浜Ｆ・マリノス", "名古屋": "名古屋グランパス",
+    "京都": "京都サンガＦ.Ｃ.", "G大阪": "ガンバ大阪",
+    "C大阪": "セレッソ大阪", "神戸": "ヴィッセル神戸",
+    "広島": "サンフレッチェ広島", "福岡": "アビスパ福岡",
+    "柏": "柏レイソル",
+}
+
+
+async def load_team_stats(year: int = 2025) -> dict[str, dict[str, Any]]:
+    """Load team stats from cache or fetch from data.j-league.or.jp.
+
+    Returns a dict mapping toto short names to stats dicts.
+    """
+    import json
+    from toto.config import CACHE_DIR
+    from toto.utils import cache as cache_util
+
+    cache_key = f"team_stats_{year}"
+    cached = cache_util.get(cache_key)
+    if cached:
+        # Build reverse mapping: official name → stats
+        official_stats = cached if isinstance(cached, dict) else json.loads(cached)
+        return _build_toto_name_map(official_stats)
+
+    # Fetch from data.j-league.or.jp
+    import httpx
+
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+    }
+    all_stats: dict[str, dict[str, Any]] = {}
+
+    # J1=651, J2=655, J3=657 (2025 season competition IDs)
+    competition_ids = {"J1": 651, "J2": 655, "J3": 657}
+
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        for league, comp_id in competition_ids.items():
+            url = (
+                f"https://data.j-league.or.jp/SFRT01/"
+                f"?yearId={year}&competitionId={comp_id}"
+                f"&competitionSectionId=0&search=search"
+            )
+            try:
+                resp = await client.get(url, headers=headers)
+                if resp.status_code != 200:
+                    continue
+                soup = BeautifulSoup(resp.text, "lxml")
+                for table in soup.find_all("table"):
+                    rows = table.find_all("tr")
+                    if len(rows) < 10:
+                        continue
+                    for row in rows[1:]:
+                        cells = row.find_all(["th", "td"])
+                        texts = [c.get_text(strip=True) for c in cells]
+                        if len(texts) >= 11 and texts[1].isdigit():
+                            team_name = texts[2]
+                            all_stats[team_name] = {
+                                "rank": int(texts[1]),
+                                "team": team_name,
+                                "points": int(texts[3]),
+                                "played": int(texts[4]),
+                                "wins": int(texts[5]),
+                                "draws": int(texts[6]),
+                                "losses": int(texts[7]),
+                                "goals_for": int(texts[8]),
+                                "goals_against": int(texts[9]),
+                                "league": league,
+                                "season": year,
+                            }
+            except Exception as e:
+                logger.warning("Failed to fetch %s standings: %s", league, e)
+
+    if all_stats:
+        cache_util.set(cache_key, all_stats)
+        logger.info("Loaded stats for %d teams from data.j-league.or.jp", len(all_stats))
+
+    return _build_toto_name_map(all_stats)
+
+
+def _build_toto_name_map(
+    official_stats: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Build a mapping from toto short names to stats.
+
+    Tries exact match first, then fuzzy match via TOTO_TO_OFFICIAL mapping.
+    """
+    result: dict[str, dict[str, Any]] = {}
+
+    # Direct mapping: official name → stats
+    for official_name, stats in official_stats.items():
+        result[official_name] = stats
+
+    # Reverse mapping: toto short name → stats via TOTO_TO_OFFICIAL
+    for short_name, official_name in TOTO_TO_OFFICIAL.items():
+        if official_name in official_stats:
+            result[short_name] = official_stats[official_name]
+
+    return result
