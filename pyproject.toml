@@ -21,6 +21,7 @@ dependencies = [
     "catboost>=1.2",
     "penaltyblog>=1.9",
     "soccerdata>=1.8",
+    "seleniumbase>=4.30",
 ]
 
 [project.optional-dependencies]

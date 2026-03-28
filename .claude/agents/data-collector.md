@@ -56,9 +56,11 @@ asyncio.run(run())
 - チーム別の直近成績（得点・失点・勝敗）の取得
 
 ## データソース優先順位
-1. Jリーグ公式データサイト（data.j-league.or.jp）のスクレイピング
-2. Football LAB（football-lab.jp）の詳細スタッツ
-3. モックデータによるフォールバック（data/mock/）
+1. toto-dream.com — 試合リスト取得（HTMLパース、div#detail02）
+2. toto.cam — 投票率データ（table.voterate）
+3. data.j-league.or.jp — チーム成績（GET: competitionId=651/655/657）
+4. data.j-league.or.jp — 試合結果1,140件（**Selenium**で取得、Dixon-Coles学習用）
+5. モックデータによるフォールバック（data/mock/）
 
 ## 出力
 - `data/intermediate/collected_data.json`
