@@ -1,4 +1,10 @@
-"""Toto official (toto-dream.com) voting data collector."""
+"""Toto official site (toto-dream.com) collector.
+
+Fetches match list and voting data from the official toto site.
+HTML structure:
+  - Match list: div#detail02 > table, rows with match number in first td
+  - Voting: li-based structure with tohyo_ class prefix
+"""
 
 from __future__ import annotations
 
@@ -15,165 +21,157 @@ logger = logging.getLogger(__name__)
 
 
 class TotoOfficialCollector(BaseCollector):
-    """Scrapes sp.toto-dream.com for toto voting percentages and match info.
+    """Scrapes sp.toto-dream.com for toto match list and voting data.
 
-    The voting page shows how the public has voted on each of the 13 toto
-    matches, broken down by home-win / draw / away-win percentages.
+    Verified working URLs:
+        Match info: /dcs/subos/screen/si01/ssin026/PGSSIN02601InittotoSP.form?holdCntId={round}
+        Voting:     /dcs/subos/screen/si01/ssin025/PGSSIN02501ForwardVotetotoSP.form
+                    ?holdCntId={round}&commodityId=01&gameAssortment=9&fromId=SSIN026
     """
 
-    VOTE_PATH = (
-        "/dcs/subos/screen/si01/ssin025/"
-        "PGSSIN02501ForwardVotetotoSP.form"
+    MATCH_INFO_PATH = (
+        "/dcs/subos/screen/si01/ssin026/PGSSIN02601InittotoSP.form"
+    )
+    VOTING_PATH = (
+        "/dcs/subos/screen/si01/ssin025/PGSSIN02501ForwardVotetotoSP.form"
     )
 
     def __init__(self) -> None:
         super().__init__(name="toto_official")
 
     async def collect(self, toto_round: int, **kwargs: Any) -> dict[str, Any]:
-        """Collect toto voting percentage data for a round.
-
-        Args:
-            toto_round: The toto round (holdCntId).
-
-        Returns:
-            Dictionary containing voting data per match, with keys:
-                - 'toto_round': The round number.
-                - 'source': Data source identifier.
-                - 'matches': List of per-match voting dicts.
-        """
-        result: dict[str, Any] = {
-            "source": "toto-dream.com",
-            "toto_round": toto_round,
-            "matches": [],
-        }
-
-        commodity_id = kwargs.get("commodity_id", "01")
-        matches = await self._fetch_voting(toto_round, commodity_id)
-        result["matches"] = matches
-        return result
-
-    async def _fetch_voting(
-        self, toto_round: int, commodity_id: str = "01"
-    ) -> list[dict[str, Any]]:
-        """Fetch and parse the voting percentage page.
+        """Collect match list and voting data from toto official site.
 
         Args:
             toto_round: The toto round number.
-            commodity_id: Product type ('01' = toto, '03' = minitoto-A, etc.).
 
         Returns:
-            List of match voting dicts.
+            Dictionary with 'matches' and 'votes' data.
         """
-        url = f"{TOTO_OFFICIAL_URL}{self.VOTE_PATH}"
-        params = {
-            "holdCntId": str(toto_round),
-            "commodityId": commodity_id,
+        matches = await self._fetch_matches(toto_round)
+        votes = await self._fetch_voting(toto_round)
+
+        logger.info(
+            "[%s] Collected %d matches, %d vote records for round %d.",
+            self.name, len(matches), len(votes), toto_round,
+        )
+        return {
+            "source": "toto-dream.com",
+            "toto_round": toto_round,
+            "matches": matches,
+            "votes": votes,
         }
-        cache_key = f"toto_vote_{toto_round}_{commodity_id}"
+
+    async def _fetch_matches(self, toto_round: int) -> list[dict[str, Any]]:
+        """Fetch match list from the toto info page."""
+        url = f"{TOTO_OFFICIAL_URL}{self.MATCH_INFO_PATH}"
+        params = {"holdCntId": str(toto_round)}
+        cache_key = f"toto_matches_{toto_round}"
 
         try:
             html = await self.fetch(url, cache_key=cache_key, params=params)
-            return self._parse_voting_table(html)
+            return self._parse_matches(html)
         except Exception:
             logger.warning(
-                "[%s] Failed to fetch voting data for round %d. Returning empty list.",
-                self.name,
-                toto_round,
-                exc_info=True,
+                "[%s] Failed to fetch matches for round %d.",
+                self.name, toto_round, exc_info=True,
             )
             return []
 
-    def _parse_voting_table(self, html: str) -> list[dict[str, Any]]:
-        """Parse the voting HTML into per-match voting records.
+    async def _fetch_voting(self, toto_round: int) -> list[dict[str, Any]]:
+        """Fetch voting percentages from the toto voting page."""
+        url = f"{TOTO_OFFICIAL_URL}{self.VOTING_PATH}"
+        params = {
+            "holdCntId": str(toto_round),
+            "commodityId": "01",
+            "gameAssortment": "9",
+            "fromId": "SSIN026",
+        }
+        cache_key = f"toto_vote_{toto_round}_01"
 
-        Args:
-            html: Raw HTML from the voting page.
+        try:
+            html = await self.fetch(url, cache_key=cache_key, params=params)
+            return self._parse_voting(html)
+        except Exception:
+            logger.warning(
+                "[%s] Failed to fetch voting for round %d.",
+                self.name, toto_round, exc_info=True,
+            )
+            return []
 
-        Returns:
-            List of dicts with match_number, teams, and vote percentages.
+    def _parse_matches(self, html: str) -> list[dict[str, Any]]:
+        """Parse match list from toto info page.
+
+        Structure: div#detail02 > table > tr with [No, Date, Stadium, Home VS Away]
         """
         soup = BeautifulSoup(html, "lxml")
-        matches: list[dict[str, Any]] = []
+        detail = soup.find("div", id="detail02")
+        if not detail:
+            logger.warning("[%s] div#detail02 not found.", self.name)
+            return []
 
-        # The voting page renders a table with rows per match.
-        # Each row typically contains: match#, home team, vote bars, away team.
-        vote_rows = soup.select("table tr, div.vote-row, li.match-item")
-        if not vote_rows:
-            logger.warning("[%s] No voting rows found in HTML.", self.name)
-            return matches
+        table = detail.find("table")
+        if not table:
+            logger.warning("[%s] No table in div#detail02.", self.name)
+            return []
 
-        match_number = 0
-        for row in vote_rows:
-            record = self._extract_vote_record(row, match_number + 1)
-            if record:
-                match_number += 1
-                record["match_number"] = match_number
-                matches.append(record)
+        records: list[dict[str, Any]] = []
+        for row in table.find_all("tr"):
+            cells = row.find_all(["th", "td"])
+            texts = [c.get_text(strip=True) for c in cells]
+            if not texts or not re.match(r"^\d+$", texts[0]):
+                continue
 
-        logger.info(
-            "[%s] Parsed voting data for %d matches.", self.name, len(matches)
-        )
-        return matches
+            match_no = int(texts[0])
+            full_text = row.get_text(" ", strip=True)
 
-    def _extract_vote_record(
-        self, element: Any, fallback_number: int
-    ) -> dict[str, Any] | None:
-        """Extract voting percentages from a single row/element.
+            date_match = re.search(r"(\d{2}/\d{2})\s*(\d{2}:\d{2})", full_text)
+            match_date = date_match.group(1) if date_match else ""
+            match_time = date_match.group(2) if date_match else ""
 
-        Args:
-            element: A BeautifulSoup element representing one match row.
-            fallback_number: Default match number if not found in the element.
+            vs_match = re.search(r"(\S+)\s*(?:VS|ＶＳ|vs)\s*(\S+)", full_text)
+            if not vs_match:
+                continue
 
-        Returns:
-            Dict with team names and vote percentages, or None.
-        """
-        text = element.get_text(separator=" ", strip=True)
-        if not text:
-            return None
+            home_team = vs_match.group(1)
+            away_team = vs_match.group(2)
+            stadium = texts[2] if len(texts) > 2 else ""
 
-        # Look for percentage patterns like "45.2%" or "45.2"
-        pct_matches = re.findall(r"(\d{1,3}(?:\.\d{1,2})?)\s*%?", text)
-        if len(pct_matches) < 3:
-            return None
+            records.append({
+                "match_number": match_no,
+                "home_team": home_team,
+                "away_team": away_team,
+                "match_date": match_date,
+                "match_time": match_time,
+                "stadium": stadium,
+            })
 
-        # Try to extract team names from links or text nodes.
-        team_links = element.find_all("a")
-        team_names = [a.get_text(strip=True) for a in team_links if a.get_text(strip=True)]
+        logger.info("[%s] Parsed %d matches.", self.name, len(records))
+        return records
 
-        # Fallback: extract from td cells.
-        if len(team_names) < 2:
-            cells = element.find_all("td")
-            team_candidates = [
-                c.get_text(strip=True)
-                for c in cells
-                if c.get_text(strip=True) and not re.match(r"^[\d.%]+$", c.get_text(strip=True))
-            ]
-            team_names = team_candidates[:2] if len(team_candidates) >= 2 else team_names
+    def _parse_voting(self, html: str) -> list[dict[str, Any]]:
+        """Parse voting percentages from the toto voting page."""
+        soup = BeautifulSoup(html, "lxml")
+        records: list[dict[str, Any]] = []
 
-        if len(team_names) < 2:
-            return None
+        pct_elements = soup.find_all(string=re.compile(r"\d+\.\d+%"))
+        if not pct_elements:
+            logger.warning("[%s] No percentage data found in voting page.", self.name)
+            return records
 
-        # The three percentages correspond to home-win, draw, away-win.
-        try:
-            percentages = [float(p) for p in pct_matches[:3]]
-        except ValueError:
-            return None
+        pcts: list[float] = []
+        for elem in pct_elements:
+            for m in re.finditer(r"(\d+\.\d+)%", str(elem)):
+                pcts.append(float(m.group(1)))
 
-        # Sanity check: percentages should roughly sum to ~100.
-        total = sum(percentages)
-        if total < 10.0:
-            return None
+        match_count = len(pcts) // 3
+        for i in range(match_count):
+            records.append({
+                "match_number": i + 1,
+                "home_vote_pct": pcts[i * 3],
+                "draw_vote_pct": pcts[i * 3 + 1],
+                "away_vote_pct": pcts[i * 3 + 2],
+            })
 
-        # Normalize if they don't sum to 100.
-        if abs(total - 100.0) > 5.0:
-            if total > 0:
-                percentages = [p / total * 100.0 for p in percentages]
-
-        return {
-            "match_number": fallback_number,
-            "home_team": team_names[0],
-            "away_team": team_names[1],
-            "home_vote_pct": round(percentages[0], 1),
-            "draw_vote_pct": round(percentages[1], 1),
-            "away_vote_pct": round(percentages[2], 1),
-        }
+        logger.info("[%s] Parsed voting for %d matches.", self.name, len(records))
+        return records

@@ -43,34 +43,69 @@ async def run_phase_a(toto_round: int, toto_type: TotoType) -> tuple[
 
     logger.info("=== Phase A: Data Collection & Analysis (parallel) ===")
 
-    # Try real collectors first, fall back to mock
+    # --- Step 1: Get match list + voting from toto official & totomo ---
+    from toto.collectors.toto_official import TotoOfficialCollector
+    from toto.collectors.totomo import TotomoCollector
+    from toto.models.schemas import MatchData, SeasonStats
+
     collected: CollectedData | None = None
     vote_data: dict | None = None
 
+    # Fetch match list and voting data in parallel
+    toto_collector = TotoOfficialCollector()
+    totomo_collector = TotomoCollector()
+
     try:
-        from toto.collectors.jleague import JLeagueCollector
-        from toto.collectors.toto_official import TotoOfficialCollector
-
-        jleague = JLeagueCollector()
-        toto_collector = TotoOfficialCollector()
-
-        collected_raw, vote_data = await asyncio.gather(
-            jleague.collect(toto_round),
+        toto_result, totomo_result = await asyncio.gather(
             toto_collector.collect(toto_round),
+            totomo_collector.collect(toto_round),
         )
-
-        if isinstance(collected_raw, CollectedData) and collected_raw.matches:
-            collected = collected_raw
-        elif isinstance(collected_raw, dict) and collected_raw.get("matches"):
-            collected = CollectedData(
-                toto_round=toto_round, toto_type=toto_type,
-                matches=collected_raw["matches"],
-                data_sources=collected_raw.get("data_sources", ["jleague"]),
-            )
     except Exception as e:
-        logger.warning("Real collectors failed (%s)", e)
+        logger.warning("Collectors failed (%s)", e)
+        toto_result = {"matches": [], "votes": []}
+        totomo_result = {"votes": []}
 
-    # Fall back to mock if real data is empty
+    # Use toto official for match list
+    official_matches = toto_result.get("matches", [])
+
+    # Prefer totomo for voting data (more reliable), fallback to toto official
+    totomo_votes = totomo_result.get("votes", [])
+    official_votes = toto_result.get("votes", [])
+    vote_list = totomo_votes if totomo_votes else official_votes
+    if vote_list:
+        vote_data = {"votes": vote_list, "toto_round": toto_round}
+        logger.info("Voting data: %d matches from %s",
+                     len(vote_list), "toto.cam" if totomo_votes else "toto-dream.com")
+
+    # --- Step 2: Build CollectedData from match list ---
+    if official_matches:
+        match_data_list = []
+        for m in official_matches:
+            # Create basic MatchData with placeholder stats
+            # (Real stats would come from football-lab.jp or data.j-league.or.jp)
+            default_stats = SeasonStats(
+                played=0, wins=0, draws=0, losses=0,
+                goals_for=0, goals_against=0, points=0, rank=0,
+            )
+            match_data_list.append(MatchData(
+                match_number=m["match_number"],
+                home_team=m["home_team"],
+                away_team=m["away_team"],
+                stadium=m.get("stadium", ""),
+                match_date=m.get("match_date", ""),
+                home_season_stats=default_stats,
+                away_season_stats=default_stats,
+            ))
+
+        collected = CollectedData(
+            toto_round=toto_round,
+            toto_type=toto_type,
+            matches=match_data_list,
+            data_sources=["toto-dream.com"],
+        )
+        logger.info("[Real] Got %d matches from toto-dream.com", len(match_data_list))
+
+    # --- Step 3: Fall back to mock if no real matches ---
     if collected is None or not collected.matches:
         logger.info("Using mock data (real collectors returned no matches)")
         mock = MockCollector()
