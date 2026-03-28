@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from toto.config import INTERMEDIATE_DIR, LOG_LEVEL
@@ -125,7 +127,14 @@ async def _collect_matches_and_votes(
 def _train_and_predict(
     match_list: list[dict[str, Any]],
 ) -> dict[str, dict[str, float]]:
-    """Train Dixon-Coles on historical data and predict current matches.
+    """Train DC + Pi-Ratings + CatBoost ensemble and predict current matches.
+
+    Pipeline:
+      1. Fetch 1,140 historical matches via Selenium
+      2. Split: first 50% trains DC, second 50% generates CatBoost features
+      3. Pi-Ratings trained on all data (online learning)
+      4. CatBoost learns when to trust DC vs Pi (especially for draws)
+      5. Final predictions use CatBoost probability output
 
     Returns: {"home_vs_away": {"home": prob, "draw": prob, "away": prob}}
     """
@@ -136,33 +145,91 @@ def _train_and_predict(
         )
         import penaltyblog as pb
         from toto.collectors.jleague import TOTO_TO_OFFICIAL
+        from catboost import CatBoostClassifier
+        import pandas as pd
     except ImportError as e:
-        logger.warning("Selenium/penaltyblog not available: %s", e)
+        logger.warning("Required packages not available: %s", e)
         return {}
 
-    logger.info("--- Training Dixon-Coles model (Selenium) ---")
+    logger.info("--- Training DC + Pi + CatBoost ensemble ---")
 
-    # Fetch J1+J2+J3 match results
+    # Step 1: Fetch historical match results
     results = fetch_match_results(year=2025, leagues=["J1", "J2", "J3"])
     df = build_training_dataframe(results)
     if df.empty:
         logger.warning("No match data for training")
         return {}
 
-    logger.info("Training data: %d matches, %d teams",
+    logger.info("Historical data: %d matches, %d teams",
                 len(df), df["team_home"].nunique())
 
-    # Train Dixon-Coles
-    weights = pb.models.dixon_coles_weights(df["date"], xi=0.001)
-    model = pb.models.DixonColesGoalModel(
-        df["goals_home"], df["goals_away"],
-        df["team_home"], df["team_away"],
+    # Step 2: Split for DC training vs CatBoost feature generation
+    dc_split = len(df) // 2
+    dc_train_data = df.iloc[:dc_split]
+    cb_train_data = df.iloc[dc_split:]
+
+    # Step 3: Train Dixon-Coles on first half
+    weights = pb.models.dixon_coles_weights(dc_train_data["date"], xi=0.001)
+    dc_model = pb.models.DixonColesGoalModel(
+        dc_train_data["goals_home"], dc_train_data["goals_away"],
+        dc_train_data["team_home"], dc_train_data["team_away"],
         weights,
     )
-    model.fit()
-    logger.info("Dixon-Coles model trained")
+    dc_model.fit()
+    logger.info("Dixon-Coles trained on %d matches", len(dc_train_data))
 
-    # Predict each match
+    # Step 4: Train Pi-Ratings on first half (then online-learn on second half)
+    pi = pb.ratings.PiRatingSystem()
+    for _, row in dc_train_data.iterrows():
+        pi.update_ratings(
+            row["team_home"], row["team_away"],
+            row["goals_home"] - row["goals_away"],
+            date=row["date"],
+        )
+
+    # Step 5: Build CatBoost features from second half
+    cb_rows: list[dict[str, Any]] = []
+    for _, row in cb_train_data.iterrows():
+        h, a = row["team_home"], row["team_away"]
+        actual = (
+            1 if row["goals_home"] > row["goals_away"]
+            else (0 if row["goals_home"] == row["goals_away"] else 2)
+        )
+        try:
+            dc_p = list(dc_model.predict(h, a).home_draw_away)
+        except Exception:
+            dc_p = [1 / 3, 1 / 3, 1 / 3]
+        try:
+            pi_pred = pi.calculate_match_probabilities(h, a)
+            pi_p = [pi_pred["home_win"], pi_pred["draw"], pi_pred["away_win"]]
+        except Exception:
+            pi_p = [1 / 3, 1 / 3, 1 / 3]
+
+        pi_h = pi.get_team_rating(h) if h in pi.team_ratings else 0
+        pi_a = pi.get_team_rating(a) if a in pi.team_ratings else 0
+
+        cb_rows.append({
+            "dc_home": dc_p[0], "dc_draw": dc_p[1], "dc_away": dc_p[2],
+            "pi_home": pi_p[0], "pi_draw": pi_p[1], "pi_away": pi_p[2],
+            "pi_diff": pi_h - pi_a,
+            "dc_pi_draw_gap": dc_p[1] - pi_p[1],
+            "dc_max": max(dc_p),
+            "dc_pi_agree": 1 if np.argmax(dc_p) == np.argmax(pi_p) else 0,
+            "actual": actual,
+        })
+        pi.update_ratings(h, a, row["goals_home"] - row["goals_away"], date=row["date"])
+
+    cb_df = pd.DataFrame(cb_rows)
+    feat_cols = [c for c in cb_df.columns if c != "actual"]
+
+    # Step 6: Train CatBoost
+    cat = CatBoostClassifier(
+        iterations=300, depth=6, learning_rate=0.05, verbose=0, random_seed=42,
+    )
+    cat.fit(cb_df[feat_cols], cb_df["actual"])
+    logger.info("CatBoost trained on %d matches (DC+Pi features)", len(cb_df))
+
+    # Step 7: Predict current matches
     known_teams = set(df["team_home"].unique()) | set(df["team_away"].unique())
     predictions: dict[str, dict[str, float]] = {}
 
@@ -174,16 +241,44 @@ def _train_and_predict(
 
         if h and a:
             try:
-                pred = model.predict(h, a)
-                p = pred.home_draw_away
-                key = f"{h_toto}_vs_{a_toto}"
-                predictions[key] = {"home": p[0], "draw": p[1], "away": p[2]}
-                logger.info("  DC: %s vs %s → H=%.1f%% D=%.1f%% A=%.1f%%",
-                            h_toto, a_toto, p[0]*100, p[1]*100, p[2]*100)
-            except Exception as e:
-                logger.warning("  DC predict failed for %s vs %s: %s", h_toto, a_toto, e)
+                dc_p = list(dc_model.predict(h, a).home_draw_away)
+            except Exception:
+                dc_p = [1 / 3, 1 / 3, 1 / 3]
+            try:
+                pi_pred = pi.calculate_match_probabilities(h, a)
+                pi_p = [pi_pred["home_win"], pi_pred["draw"], pi_pred["away_win"]]
+            except Exception:
+                pi_p = [1 / 3, 1 / 3, 1 / 3]
+
+            pi_h = pi.get_team_rating(h) if h in pi.team_ratings else 0
+            pi_a = pi.get_team_rating(a) if a in pi.team_ratings else 0
+
+            feat = pd.DataFrame([{
+                "dc_home": dc_p[0], "dc_draw": dc_p[1], "dc_away": dc_p[2],
+                "pi_home": pi_p[0], "pi_draw": pi_p[1], "pi_away": pi_p[2],
+                "pi_diff": pi_h - pi_a,
+                "dc_pi_draw_gap": dc_p[1] - pi_p[1],
+                "dc_max": max(dc_p),
+                "dc_pi_agree": 1 if np.argmax(dc_p) == np.argmax(pi_p) else 0,
+            }])
+            proba = cat.predict_proba(feat[feat_cols])[0]
+            key = f"{h_toto}_vs_{a_toto}"
+            predictions[key] = {
+                "home": float(proba[0]),
+                "draw": float(proba[1]),
+                "away": float(proba[2]),
+            }
+            pick = ["H", "D", "A"][np.argmax(proba)]
+            logger.info(
+                "  Ensemble: %s vs %s → %s H=%.1f%% D=%.1f%% A=%.1f%% "
+                "(DC: H=%.0f%% D=%.0f%% A=%.0f%% | Pi-D=%.0f%%)",
+                h_toto, a_toto, pick,
+                proba[0] * 100, proba[1] * 100, proba[2] * 100,
+                dc_p[0] * 100, dc_p[1] * 100, dc_p[2] * 100,
+                pi_p[1] * 100,
+            )
         else:
-            logger.warning("  DC: team not found: %s(%s) vs %s(%s)",
+            logger.warning("  Team not found: %s(%s) vs %s(%s)",
                            h_toto, h, a_toto, a)
 
     return predictions
