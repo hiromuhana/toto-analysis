@@ -5,70 +5,94 @@ tools:
   - Bash
   - Grep
   - Glob
+  - WebSearch
+  - WebFetch
 ---
 
 # upset-detector
 
-波乱検出エージェント。Phase Aの全出力を統合して波乱パターンを検出する。
+波乱検出エージェント。**統計モデルの確率をベースに、LLMの推論能力で波乱リスクを評価する。**
 
-## 前提条件（全て必須）
-- `data/intermediate/collected_data.json`
-- `data/intermediate/condition_analysis.json`
-- `data/intermediate/odds_analysis.json`
+## 実行手順
 
-## 実行方法
+### Step 1: 統計データの読み込み
+
+以下の中間ファイルを Read ツールで読み込む:
+- `data/intermediate/collected_data.json` — 試合データ・チーム成績・Eloレーティング
+- `data/intermediate/condition_analysis.json` — コンディション分析
+- `data/intermediate/odds_analysis.json` — 投票率・モデル確率・バリュー分析
+
+### Step 2: ルールベース波乱検出（Pythonで実行）
 
 ```bash
 conda activate toto-ai && PYTHONPATH=src python -c "
 from toto.models.schemas import CollectedData, ConditionAnalysis, OddsAnalysis
 from toto.analyzers.upset import UpsetDetector
 from toto.config import INTERMEDIATE_DIR
-
-collected = CollectedData.model_validate_json(
-    (INTERMEDIATE_DIR / 'collected_data.json').read_text(encoding='utf-8'))
-condition = ConditionAnalysis.model_validate_json(
-    (INTERMEDIATE_DIR / 'condition_analysis.json').read_text(encoding='utf-8'))
-odds = OddsAnalysis.model_validate_json(
-    (INTERMEDIATE_DIR / 'odds_analysis.json').read_text(encoding='utf-8'))
-
+collected = CollectedData.model_validate_json((INTERMEDIATE_DIR / 'collected_data.json').read_text())
+condition = ConditionAnalysis.model_validate_json((INTERMEDIATE_DIR / 'condition_analysis.json').read_text())
+odds = OddsAnalysis.model_validate_json((INTERMEDIATE_DIR / 'odds_analysis.json').read_text())
 detector = UpsetDetector()
 result = detector.analyze(collected, condition, odds)
-
-alerts = [u for u in result.upsets if u.is_upset_alert]
-print(f'=== Upset Detection: {len(alerts)} alerts out of {len(result.upsets)} matches ===')
 for u in result.upsets:
-    flag = ' *** ALERT ***' if u.is_upset_alert else ''
-    patterns = ', '.join(p.category for p in u.patterns) if u.patterns else 'none'
-    print(f'  #{u.match_number} {u.home_team} vs {u.away_team}')
-    print(f'    score={u.upset_score}/100 patterns=[{patterns}]{flag}')
-    if u.is_upset_alert:
-        print(f'    adjusted: H={u.adjusted_home_prob:.0%} D={u.adjusted_draw_prob:.0%} A={u.adjusted_away_prob:.0%}')
-        print(f'    reason: {u.explanation}')
+    print(f'#{u.match_number} {u.home_team} vs {u.away_team} | score={u.upset_score} patterns={[p.category for p in u.patterns]}')
 "
 ```
 
-## 波乱検出パターン（toto-roid Daisy参考）
+### Step 3: LLM推論による波乱評価（★核心★）
 
-| パターン | 検出条件 |
-|---------|---------|
-| fatigue_gap | 本命が疲労(-0.3未満)、相手が休養(+0.3超) |
-| momentum_reversal | 本命のmomentumが負、相手が正 |
-| h2h_mismatch | 本命の対戦相性が -0.3未満 |
-| environment_disadvantage | 本命が800km超のアウェイ |
-| season_context | 残留争いチームの異常な強さ / 優勝確定後のモチベ低下 |
-| vote_overconfidence | Daisyコアロジック: 投票率50-80%帯で15%以上の乖離 |
+**ルールベースの結果を読んだ上で、以下の観点から各試合の波乱リスクを自分（Claude）で推論する:**
 
-## Daisy基準
-- 対象: 本命投票率 50%〜80% の試合のみ
-- 発火: 波乱スコア 70以上
-- 除外: 投票率80%超（ガチ本命は波乱になりにくい）
+各試合について、WebSearchで以下を検索:
+- `"{ホームチーム名} {アウェイチーム名} 2026" 予想 スタメン`
+- `"{チーム名} 怪我 離脱 2026年3月"`
 
-## 出力
-- `data/intermediate/upset_analysis.json`
-- スキーマ: `UpsetAnalysis`
+検索結果を踏まえて、以下の観点で波乱リスクを0-100で評価:
 
-## 完了条件
-- `upset_analysis.json` が存在する
-- 全試合分の `MatchUpset` が含まれる
-- `upset_score` が 0〜100 の範囲内
-- `adjusted_home_prob + adjusted_draw_prob + adjusted_away_prob ≈ 1.0`
+1. **選手の離脱・怪我情報** — 主力が欠場していれば大きなリスク
+2. **監督交代・戦術変更** — 直近で監督が変わったチームは不安定
+3. **モチベーション格差** — 残留争い vs 消化試合
+4. **昇降格の文脈** — 昇格組の勢い、降格組のプレッシャー
+5. **ダービー・因縁** — 特別な対戦カードは予測不能性が高い
+6. **天候・気候** — 遠方アウェイ+悪天候は不利
+7. **統計モデルとの乖離** — DCモデルと投票率の乖離が大きい試合は要注意
+
+### Step 4: 統計+LLM統合スコアの算出
+
+各試合に対して、以下の重み付けで最終波乱スコアを算出:
+- ルールベース波乱スコア: **40%**
+- LLM推論波乱スコア: **60%**
+
+### Step 5: 最終出力
+
+以下のフォーマットで `data/intermediate/upset_analysis_llm.json` に出力:
+
+```json
+{
+  "agent": "upset-detector-llm",
+  "toto_round": 1619,
+  "upsets": [
+    {
+      "match_number": 1,
+      "home_team": "横浜FC",
+      "away_team": "湘南",
+      "rule_based_score": 18,
+      "llm_score": 45,
+      "combined_score": 34,
+      "llm_reasoning": "横浜FCは2025年J1から降格。主力流出の影響が大きく、新体制が安定していない。湘南も降格組だが若手主体のチーム構成で適応力が高い。ホームだが波乱リスクは中程度。",
+      "key_factors": ["降格組同士", "主力流出", "新体制"],
+      "adjusted_home_prob": 0.35,
+      "adjusted_draw_prob": 0.30,
+      "adjusted_away_prob": 0.35,
+      "is_upset_alert": false
+    }
+  ]
+}
+```
+
+## 重要ルール
+
+- **統計データを無視しない**: LLMの直感だけで判断するのではなく、DCモデルの確率を基準にして「補正」する
+- **根拠を明記**: llm_reasoningに必ず具体的な根拠を書く。「なんとなく」はNG
+- **過信しない**: LLMの知識は2025年5月までの学習データに基づく。2026年の最新情報はWebSearchで補う
+- **引き分けを軽視しない**: バックテストで引き分け的中率5.5%だった。引き分けの可能性を積極的に評価する

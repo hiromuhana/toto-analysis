@@ -4,12 +4,17 @@
 Jリーグのスポーツくじ「toto」のAI予測システム。
 5つのサブエージェントがパイプライン処理で予測を生成する。
 
-## アーキテクチャ
+## アーキテクチャ（統計+LLMハイブリッド）
 ```
-Phase A（並列）: data-collector + condition-analyzer + odds-analyzer
-Phase B（逐次）: upset-detector（Phase Aの全出力を入力）
-Phase C（逐次）: strategy-synthesizer（全出力を統合）
+Phase A（Python自動）: Selenium→Dixon-Coles学習→統計予測→ルールベース分析
+Phase B（LLM推論）  : upset-detector（WebSearch+Claude推論で波乱評価）
+Phase C（LLM統合）  : strategy-synthesizer（統計60%+LLM40%で最終判断）
 ```
+
+バックテスト実績:
+- DCモデル的中率: 49.3%（ランダム33.3%の1.5倍）
+- ダブル的中率: 74.9%
+- minitoto推奨（ROI +751%）
 
 ## スラッシュコマンド
 
